@@ -1,6 +1,13 @@
 # 轻量级 Agent 协作标准
 
+**[简体中文](README.md) | [English](README_EN.md)**
+
 > **一句话概述**：基于纯 Markdown + Git + 操作系统文件系统构建的多智能体异步协同与个性化“黑板”规范。零外部服务依赖，天然防覆写、抗路径变迁，适用于任何本地开发环境与任意 LLM 厂商（Gemini, Claude, OpenAI Codex, Cursor 等）。
+
+> [!NOTE]
+> **平台适配声明（Platform Disclaimer）**：  
+> 本项目核心基于 **Google Antigravity** 架构与扩展规范（Skills / Rules / Customizations）进行深度设计与优化。  
+> 协议底层采用纯文本 Markdown、Git 与 Bash 构建，具有高度通用性；若在其他平台（如 Cursor, Claude Code, OpenAI Codex, Aider 等）中使用，请根据对应平台的指令规范（如 `.cursorrules`, `CLAUDE.md` 等）自行做适当适配与挂载。
 
 ---
 
@@ -45,7 +52,8 @@ sumagent/
 │   ├── profiles/              # 个性化文件池（仅保留 .gitkeep）
 │   └── decisions/             # 决策与阶段产物池（仅保留 .gitkeep）
 ├── try.md                     # 前期开源项目调研与可行性评估报告
-└── README.md                  # 本文档
+├── README.md                  # 中文使用说明
+└── README_EN.md               # English Documentation
 ```
 
 ---
