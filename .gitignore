@@ -1,0 +1,8 @@
+# Agent Worktrees isolation directory
+.worktrees/
+
+# OS and Editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.bak
