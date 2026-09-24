@@ -1,4 +1,4 @@
-# F-Blackboard: 零依赖轻量级 Agent 协同标准与状态机规程
+# 轻量级 Agent 协作标准
 
 > **一句话概述**：基于纯 Markdown + Git + 操作系统文件系统构建的多智能体异步协同与个性化“黑板”规范。零外部服务依赖，天然防覆写、抗路径变迁，适用于任何本地开发环境与任意 LLM 厂商（Gemini, Claude, OpenAI Codex, Cursor 等）。
 
