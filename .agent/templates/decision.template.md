@@ -25,3 +25,4 @@ updated_at: "{{ISO_TIMESTAMP}}"
   "contract_version": "1.0.0"
 }
 ```
+

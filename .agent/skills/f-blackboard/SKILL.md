@@ -86,3 +86,4 @@ description: >-
      bash .agent/scripts/worktree.sh merge <agent_name>
      bash .agent/scripts/worktree.sh remove <agent_name>
      ```
+
