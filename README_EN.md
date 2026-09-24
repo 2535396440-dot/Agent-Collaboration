@@ -1,4 +1,4 @@
-# F-Blackboard: Zero-Dependency Lightweight Multi-Agent Collaboration & State Machine Protocol
+# Lightweight Multi-Agent Collaboration
 
 **[简体中文](README.md) | [English](README_EN.md)**
 
