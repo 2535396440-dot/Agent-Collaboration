@@ -1,67 +1,55 @@
-# AGENTS.md - 工作区智能体协同契约与个性化服务指引
+# AGENTS.md - 工作区多智能体协同协议与状态机契约
 
 > **致所有进入本工作区的 AI 智能体（Gemini, Claude, Codex, Cursor 等）**：
-> 本工作区遵循 **`F-Blackboard`（文件驱动黑板与轻量产物 Pub-Sub 协议）**。
-> 无论你是主控 Agent 还是下游执行 Agent，在开始任何任务之前，请严格遵循以下运行时规则：
+> 本工作区遵循 **`F-Blackboard`（文件驱动黑板与轻量产物 Pub-Sub 协议）**，并挂载同名技能规范。
+> 为杜绝不同模型的概率性语义理解偏差，所有进入本工作区的智能体必须严格遵循以下**状态机与固定行为编码**：
 
 ---
 
-## 核心规则一：第一轮对话的“个性化服务”自适应读取（绝不迷茫）
+## 零号底线原则：默认惰性与禁止预读（Strict Inertia）
 
-当用户在初次对话或任务开启时说出如下类似指令：
-> *“读取我的个性化文件”*  
-> *“参考我的开发习惯/项目偏好”*  
-> *“按照上次的架构决策继续执行”*  
+```
+[ 会话启动默认状态: INERT (完全白板 / 绝对中立) ]
+       │
+       ├── (用户普通对话) ───────────────> 正常就事论事，保持标准通用助手响应
+       │
+       ├── (用户显式指令: "读取个性化...") ──> 触发 [规程一: 按需只读挂载]
+       │
+       ├── (用户显式指令: "归档/总结...") ──> 触发 [规程二: 结构化提炼落盘]
+       │
+       └── (用户显式指令: "多Agent隔离") ─> 触发 [规程三: Git Worktree 隔离]
+```
 
-### 你必须遵循的寻址流程：
-1. **绝不依赖写死的绝对路径**：用户可能随时修改了个性化文件的路径、目录层级或标题。
-2. **主动执行“语义与元数据嗅探”**：
-   * 优先查看 `artifacts/INDEX.md` 中的产物登记列表；
-   * 若无索引或未命中，使用轻量检索工具（如 `git grep "kind: profile"` 或检索 `tags`）寻找带有 YAML Frontmatter 的 Markdown 文件；
-   * 通过比对文件头部的 `urn`、`kind`（如 `profile` / `memory` / `decision`）与 `tags`，自动识别用户所指的目标。
-3. **只读挂载与反馈**：
-   * 找到目标文件后，以**只读模式（Read-Only）**加载内容；
-   * 向用户明确反馈一句你已加载的配置（如：*“已自动识别并加载个性化配置：[相对路径]，遵循其中的架构规范...”*）；
-   * 将该文件中的所有要求作为本会话的不可变公理约束。
-
----
-
-## 核心规则二：对话总结即“标准产物归档”
-
-当用户发出归档、总结或沉淀指令（如 *“总结刚才的结论，保存为个性化偏好/架构决策”*）时：
-1. **坚决剥离口水话**：严禁把双方完整的交互对话流原样堆砌进文件。
-2. **萃取高信噪比产物**：提取**核心结论**、**配置参数**、**数据契约**及**约束清单**。
-3. **注入标准 YAML Frontmatter**：
-   ```yaml
-   ---
-   urn: "urn:agent:<kind>:<unique-slug>"
-   kind: "profile" # 或 "decision", "memory", "deliverable"
-   title: "<清晰明确的人类可读标题>"
-   tags: ["<关键词1>", "<关键词2>"]
-   summary: "<一句话摘要，阐明本产物核心作用>"
-   read_only: true
-   version: "1.0.0"
-   ---
-   ```
-4. **落盘与 Git 自动持久化**：
-   * 默认写入 `artifacts/` 相应目录下（如 `artifacts/profiles/` 或 `artifacts/decisions/`）；
-   * 提炼更新 `artifacts/INDEX.md` 索引清单；
-   * 执行 `git commit` 将产物持久化，确保版本可回溯、防篡改。
+> [!CAUTION]
+> **绝对禁令**：
+> 1. **严禁在会话开始或用户未显式要求时，主动检索、预先读取或盲目假设任何用户的个性化偏好、行为画像或历史意图。**
+> 2. 用户可能在某些任务中需要纯粹、中立的客观推理。未经对话显式授权，不得让任何历史“个性化”内容污染当前任务上下文。
 
 ---
 
-## 核心规则三：多 Agent 协作环境下的物理隔离与只读防腐
+## 固定行为编码规范（State Machine Actions）
 
-1. **只读防腐（Read-Only Consumption）**：
-   * 上游 Agent 产出的 Markdown 结论，下游 Agent 仅能**作为输入阅读**，禁止直接原地编辑覆盖；
-   * 如有修正，应由当前 Agent 派生新版本文件（如更新 `version: "1.1.0"`）或生成下游专属的任务交付物。
-2. **环境隔离（Git Worktree）**：
-   * 若当前属于多 Agent 并发操作模式，严禁直接在主工作区并发写代码；
-   * 使用 `.agent/scripts/worktree.sh create <agent-name>` 在独立的 `.worktrees/<agent-name>` 下作业，通过 Git 分支和产物合并完成协作交接。
+### 状态 1：按需显式读取（On-Demand Consumption）
+* **仅当**用户输入包含 *“读取我的个性化文件”*、*“应用我的XX偏好”* 或 *“参考上次的XX决策”* 时触发。
+* **执行逻辑（彻底解决发现危机）**：
+  1. **禁止批量加载**：严禁遍历读取工作区或 `artifacts/` 目录下的所有 `.md` 文件全文；
+  2. **带外秒级检索**：优先查阅 `artifacts/INDEX.md`（仅含元数据索引），或通过命令行调用 `.agent/scripts/artifact.sh find "<关键词>"`；
+  3. **只读挂载**：根据检索到的相对路径只读加载**且仅加载该单个文件**，将提取出的参数作为本会话不可变的只读约束。
+
+### 状态 2：对话提炼与产物归档（Distill & Archive）
+* **仅当**用户下达总结性、归档性指令（如 *“总结并归档为产物”*、*“沉淀为架构决策”*）时触发。
+* **执行逻辑**：
+  1. 剔除所有沟通口水话，提炼出核心结论、数据参数、约束清单；
+  2. 按照 `.agent/templates/` 规范注入标准 YAML Frontmatter（包含 `urn:`, `kind:`, `tags:`, `summary:`）；
+  3. 写入 `artifacts/<kind>s/`，并执行 `bash .agent/scripts/artifact.sh index` 与 `commit` 固化版本。
+
+### 状态 3：物理环境隔离（Worktree Isolation）
+* **仅当**进行多 Agent 并发作业或高风险独立实验时触发。
+* **执行逻辑**：使用 `bash .agent/scripts/worktree.sh create <agent_name>` 在独立的 `.worktrees/<agent_name>` 下作业，通过分支合并完成交接。
 
 ---
 
-## 协议详细技术参考
-完整 IO 标准规范请见：[.agent/PROTOCOL.md](file:///.agent/PROTOCOL.md)
-辅助工具脚本请见：[.agent/scripts/](file:///.agent/scripts/)
-默认产物池与索引请见：[artifacts/INDEX.md](file:///artifacts/INDEX.md)
+## 协议与技能映射
+* 详细技术标准详见：[.agent/PROTOCOL.md](file:///.agent/PROTOCOL.md)
+* 格式化技能规程详见：[.agent/skills/f-blackboard/SKILL.md](file:///.agent/skills/f-blackboard/SKILL.md)
+* 动态产物目录清单：[artifacts/INDEX.md](file:///artifacts/INDEX.md)

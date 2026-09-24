@@ -5,6 +5,7 @@
 > 2. **文件即黑板（Filesystem as Blackboard）**：文件系统是天然的通用总线，解耦 Agent 运行时、模型厂商与生命周期。
 > 3. **只读即防腐（Read-Only as Guardrail）**：上游产物对下游是只读事实，下游基于输入推理派生，不可覆写篡改。
 > 4. **语义寻址免绝对路径（Semantic Over Absolute Path）**：通过 YAML Frontmatter 唯一标识与语义标签定位，抗用户重命名与路径迁移。
+> 5. **默认惰性与零预读（Strict Inertia）**：模型仅知晓协议规程，严禁未经显式指令提前加载或预设任何个性化偏好。
 
 ---
 
@@ -14,15 +15,15 @@
 
 ```yaml
 ---
-urn: "urn:agent:profile:user-preference" # 全局或工作区唯一语义 URN
+urn: "urn:agent:profile:{{SLUG}}"       # 全局或工作区唯一语义 URN
 kind: "profile"                          # 类型: profile(个性化偏好) | memory(长期记忆) | decision(架构决策) | deliverable(阶段产物)
-title: "开发者全局编码偏好与协作规范"
-tags: ["preference", "python", "clean-code", "style"]
-summary: "定义了用户在代码生成、架构选型及与 AI 对话时的硬性偏好与风格指南"
+title: "{{TITLE}}"
+tags: ["{{TAG_1}}", "{{TAG_2}}"]
+summary: "{{ONE_SENTENCE_SUMMARY}}"
 read_only: true                          # 标记下游 Agent 是否应以只读模式消费
 version: "1.0.0"                         # 语义化版本号
-producer: "human-and-agent"              # 产出者身份
-updated_at: "2026-09-24T12:00:00"
+producer: "{{AGENT_OR_HUMAN_ID}}"        # 产出者身份
+updated_at: "{{ISO_TIMESTAMP}}"
 ---
 ```
 
@@ -39,92 +40,83 @@ updated_at: "2026-09-24T12:00:00"
 
 ---
 
-## 2. Agent 寻址与读取协议（Sub - Read-Only Consumption）
+## 2. 彻底解决“文件发现与索引危机”（Discovery Problem 治理）
 
-当用户在对话中提到：
-> *“读取我的个性化文件”*  
-> *“参考我之前的架构决策”*  
-> *“按照我的编码风格来写”*  
+在多 Agent 长周期工作中，文件可能累积几十上百个。若盲目全量加载，将瞬间造成上下文爆炸与 Token 浪费。本标准采用**双层解耦架构**彻底解决发现危机：
 
-### Agent 的标准执行流程（语义嗅探模式）
-1. **禁止行为**：
-   * ❌ 禁止直接在代码或 Prompt 中写死绝对路径（如 `C:/Users/xxx/file.md` 或 `/root/project/docs/style.md`）。
-   * ❌ 禁止因找不到字面同名文件就直接报错放弃。
-2. **正确执行步骤**：
-   * **步骤 A（查阅索引）**：优先检查工作区是否存在 `artifacts/INDEX.md`。如有，检索匹配的 `urn` 或 `summary`。
-   * **步骤 B（语义与元数据嗅探）**：若无索引或文件被移动，执行轻量扫描：
-     ```bash
-     git grep -l "kind: profile"
-     # 或针对语义标签进行嗅探
-     git grep -l "urn:agent:profile"
-     ```
-   * **步骤 C（只读加载与确认）**：
-     * 读取对应文件的 Markdown 内容。
-     * 向用户快速确认一句：*“已根据标签 [xxx] 挂载个性化配置文件 [文件路径] 作为只读基准，开始执行下一步……”*
-   * **步骤 D（防腐遵循）**：
-     * 将文件中的决策项作为本轮对话的**公理约束（Ground Truth）**，不得在后续推导中违背该文件中声明的原则。
+```
+用户指令: "读取我的鉴权决策"
+            │
+            ▼
+    ┌───────────────────────┐
+    │ 途径 A: 查阅 INDEX.md │ <─── 仅阅读轻量表格元数据 (平均每项 ~20 Tokens)
+    └───────────────────────┘
+            │
+       (若未命中/改名)
+            ▼
+    ┌───────────────────────┐
+    │ 途径 B: 带外脚本检索  │ <─── 运行 bash .agent/scripts/artifact.sh find "auth"
+    └───────────────────────┘      (在宿主操作系统层完成 grep，0 上下文消耗)
+            │
+            ▼
+    定位唯一目标文件: artifacts/decisions/auth.md
+            │
+            ▼
+    仅只读加载该单个目标文件 (O(1) 精准注入上下文)
+```
+
+1. **第一道防线：轻量全景索引（`artifacts/INDEX.md`）**
+   - 索引只包含 URN、类别、标题、标签与一句话摘要。即便有 100 个产物文件，全表仅约 2000 Tokens，Agent 一瞥即知所需目标，无需遍历文件内容。
+2. **第二道防线：带外 Shell 检索（`artifact.sh find`）**
+   - 当文件量级极大（成千上万）或用户把文件任意移动改名时，Agent 无需将任何索引载入上下文，而是通过调用命令行工具在宿主操作系统层执行 grep 嗅探。检索耗费的是操作系统的毫秒级计算，输入给模型的仅为最终命中的 1 个相对路径。
+3. **第三道防线：禁止批量读取准则**
+   - 契约严格规定：严禁 Agent 批量加载多个 `.md` 产物。任何操作只对准经前置索引命中的单一目标文件。
 
 ---
 
-## 3. 对话总结与归档协议（Pub - Archive & Distillation）
+## 3. Agent 寻址与读取协议（Sub - Read-Only Consumption）
 
-当用户下达总结性、归档性指令时，例如：
-> *“总结我们刚才的讨论，生成个性化偏好文件”*  
-> *“把刚才定下来的接口规范归档”*  
-> *“把这段对话的结论保存为一个新的阶段产物”*  
+> [!IMPORTANT]
+> **默认中立原则**：Agent 在启动时绝不主动预读任何个性化文件。只有在用户发出显式调用指令时方可触发以下步骤。
 
-### Agent 的标准执行流程
+### 显式触发后的标准执行流程：
+1. **定向检索**：通过 `artifacts/INDEX.md` 或 `bash .agent/scripts/artifact.sh find "<目标>"` 定位目标。
+2. **只读挂载与反馈**：
+   - 仅只读读取命中的该单个 Markdown 文件；
+   - 向用户明确确认：*“已根据指令挂载产物：`[文件路径]`，作为后续执行的只读约束基准。”*
+3. **防腐遵循**：
+   - 将文件中的决策项作为本轮对话的**公理约束（Ground Truth）**，不得违背该文件中声明的原则。
+
+---
+
+## 4. 对话总结与归档协议（Pub - Archive & Distillation）
+
+当用户下达总结性、归档性指令时：
 1. **过程与产物剥离（Distillation）**：
-   * 剔除所有寒暄、试错过程、反问和多余解释。
-   * 萃取最具价值的：
-     * **核心决策列表（Decisions）**
-     * **参数/常量/数据结构（Parameters & Schemas）**
-     * **约束与禁忌（Constraints & Anti-patterns）**
+   - 剔除所有寒暄、试错过程、反问和多余解释；
+   - 萃取核心决策（Decisions）、结构化参数（Schemas）、约束与禁忌（Constraints）。
 2. **生成标准 Markdown 产物**：
-   * 在文件头部按规范注入完整的 YAML Frontmatter。
-   * 推荐存储在 `artifacts/<kind>s/` 目录下（如 `artifacts/profiles/` 或 `artifacts/decisions/`），以可读的短横线命名法（slug）命名（如 `user-coding-style.md`）。
+   - 在文件头部注入标准 YAML Frontmatter；
+   - 存入 `artifacts/<kind>s/` 目录下。
 3. **版本化提交与不可变保障（Git Commit）**：
-   * 生成文件后，Agent 调用 Git 执行原子提交，形成不可篡改的历史记录：
+   - 执行脚本重建索引并原子提交到 Git 仓库：
      ```bash
-     git add <file_path>
-     git commit -m "chore(artifact): archive <kind> [title] - version [ver]"
+     bash .agent/scripts/artifact.sh index
+     bash .agent/scripts/artifact.sh commit "chore(artifact): archive <kind> [title]"
      ```
-4. **动态维护索引**：
-   * 触发更新 `artifacts/INDEX.md`，使工作区始终保持一张自解释的产物全局地图。
 
 ---
 
-## 4. Git Worktree 物理隔离协议（Multi-Agent Workspace Isolation）
+## 5. Git Worktree 物理隔离协议（Multi-Agent Workspace Isolation）
 
-当存在多个 Agent（例如 Agent-Gemini 负责架构分析，Agent-Codex 负责编写代码测试）同时在一个代码库上工作时，为避免文件锁冲突与环境脏写，采用 Git Worktree 进行物理隔离：
+多 Agent 并发作业时，使用 Git Worktree 进行物理隔离：
+```bash
+# 1. 创建隔离物理工作区
+bash .agent/scripts/worktree.sh create <agent_name>
 
+# 2. Agent 在 .worktrees/<agent_name> 下独立推导，主分支不受影响
+
+# 3. 成果交付与清理
+bash .agent/scripts/worktree.sh merge <agent_name>
+bash .agent/scripts/worktree.sh remove <agent_name>
 ```
-主仓库目录（Main Workspace: master 分支）
-  ├── .git/
-  ├── .agent/            <-- 全局共享 IO 标准与工具
-  ├── artifacts/         <-- 统一产物交付与索引池
-  └── .worktrees/        <-- 隔离的 Agent 子工作区（不纳入版本控制）
-       ├── agent-gemini/ <-- 挂载至分支 agent/gemini
-       └── agent-codex/  <-- 挂载至分支 agent/codex
-```
-
-### 协作流转规范
-1. **创建独立环境**：
-   ```bash
-   git worktree add -b agent/gemini .worktrees/agent-gemini master
-   ```
-2. **独立推导与产出**：
-   * Agent-Gemini 在 `.worktrees/agent-gemini` 内部执行所有中间操作、生成临时测试文件。
-3. **成果交付（发布到主线）**：
-   * Agent-Gemini 将提炼出的产物提交到 `agent/gemini` 分支。
-   * 通过将产物合并或检出到主分支的 `artifacts/` 目录，使下游 Agent-Codex 能够以只读方式检视该成果。
-4. **清理释放**：
-   * 任务完成后，执行 `git worktree remove .worktrees/agent-gemini` 释放磁盘空间。
-
----
-
-## 5. 极简性与未来模型前向兼容声明
-
-本标准之所以**坚决拒绝引入 Python/Node.js 运行时或复杂的向量数据库**，是因为：
-1. **未来的大模型具备极强的自然语言自省能力**：现代与未来 LLM 擅长阅读 YAML 元数据、理解 Markdown 语义，以及通过轻量 Shell 命令自寻路径。
-2. **零安装负担**：只要目标主机安装了 Git 和任意文本编辑器，本标准在任何工作区均可 1 秒内激活，永不过期、永不发生依赖破坏。

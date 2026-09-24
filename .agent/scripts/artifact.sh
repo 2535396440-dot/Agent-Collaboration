@@ -51,7 +51,11 @@ extract_field() {
 }
 
 get_all_markdown_files() {
-  git ls-files --cached --others --exclude-standard "*.md" 2>/dev/null || find . -name "*.md" -not -path "*/.git/*" -not -path "*/.worktrees/*"
+  if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    git ls-files --cached --others --exclude-standard "*.md" | grep -v "^\.agent/" || true
+  else
+    find . -name "*.md" -not -path "*/.git/*" -not -path "*/.worktrees/*" -not -path "*/.agent/*"
+  fi
 }
 
 case "$ACTION" in
